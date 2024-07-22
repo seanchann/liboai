@@ -592,7 +592,33 @@ namespace liboai {
 			size_t writeUserFunction(char* ptr, size_t size, size_t nmemb, const WriteCallback* write);
 			size_t writeFunction(char* ptr, size_t size, size_t nmemb, std::string* data);
 			size_t writeFileFunction(char* ptr, size_t size, size_t nmemb, std::ofstream* file);
-		}
+		};
+
+		class Session;
+		class SessionHandle final {
+			public:
+				SessionHandle() {
+					session_ = std::make_unique<Session>();
+				}
+				~SessionHandle() = default;
+
+				SessionHandle(const SessionHandle& other) = delete;
+				SessionHandle(SessionHandle&& other) noexcept : session_(std::move(other.session_)) {}
+
+				SessionHandle& operator=(SessionHandle&& other) noexcept {
+						if (this != &other) {
+								session_ = std::move(other.session_);
+						}
+						return *this;
+				}
+
+				Session* GetSession() {
+					return session_.get();
+				}
+
+			private:
+				std::unique_ptr<Session> session_;
+		};
 
 		/*
 			Class for sessions; each session is a single request.

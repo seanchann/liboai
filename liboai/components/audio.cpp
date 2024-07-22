@@ -19,6 +19,8 @@ liboai::Response liboai::Audio::transcribe(const std::filesystem::path& file, co
 	if (temperature) { form.parts.push_back({ "temperature", std::to_string(temperature.value()) }); }
 	if (language) { form.parts.push_back({ "language", language.value() }); }
 
+	netimpl::SessionHandle session_handle;
+
 	Response res;
 	res = this->Request(
 		Method::HTTP_POST, this->openai_root_, "/audio/transcriptions", "multipart/form-data",
@@ -26,7 +28,8 @@ liboai::Response liboai::Audio::transcribe(const std::filesystem::path& file, co
 		std::move(form),
 		this->auth_.GetProxies(),
 		this->auth_.GetProxyAuth(),
-		this->auth_.GetMaxTimeout()
+		this->auth_.GetMaxTimeout(),
+		session_handle
 	);
 
 	return res;
