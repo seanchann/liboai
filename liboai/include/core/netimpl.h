@@ -731,53 +731,70 @@ namespace liboai {
 		template <class... _Options>
 		liboai::Response Get(_Options&&... options) {
 			Session session;
-			if (auto shared_session = Session::GetSharedSession(); shared_session != nullptr) {
-				shared_session->ClearContext();
-				set_options(*shared_session, std::forward<_Options>(options)...);
-				return shared_session->Get();
-			}else{
-				set_options(session, std::forward<_Options>(options)...);
-				return session.Get();
-			}
+			Session& session_handle = set_options_with_session(session, std::forward<_Options>(options)...);
+			return session_handle.Get();
 		}
 
 		template <class... _Options>
 		liboai::Response Post(_Options&&... options) {
 			Session session;
-			if (auto shared_session = Session::GetSharedSession(); shared_session != nullptr) {
-				shared_session->ClearContext();
-				set_options(*shared_session, std::forward<_Options>(options)...);
-				return shared_session->Post();
-			}else{
-				set_options(session, std::forward<_Options>(options)...);
-				return session.Post();
-			}
+			Session& session_handle = set_options_with_session(session, std::forward<_Options>(options)...);
+			return session_handle.Post();
 		}
 		
 		template <class... _Options>
 		liboai::Response Delete(_Options&&... options) {
 			Session session;
-			if (auto shared_session = Session::GetSharedSession(); shared_session !=nullptr) {
-				shared_session->ClearContext();
-				set_options(*shared_session, std::forward<_Options>(options)...);
-				return shared_session->Delete();
-			}else{
-				set_options(session, std::forward<_Options>(options)...);
-				return session.Delete();
-			}
+			Session& session_handle = set_options_with_session(session, std::forward<_Options>(options)...);
+			return session_handle.Delete();
 		}
 
 		template <class... _Options>
 		liboai::Response Download(std::ofstream& file, _Options&&... options) {
 			Session session;
-			if (auto shared_session = Session::GetSharedSession(); shared_session !=nullptr) {
-				shared_session->ClearContext();
-				set_options(*shared_session, std::forward<_Options>(options)...);
-				return shared_session->Download(file);
-			}else{
-				set_options(session, std::forward<_Options>(options)...);
-				return session.Download(file);
+			Session& session_handle = set_options_with_session(session, std::forward<_Options>(options)...);
+			return session_handle.Download();
+		}
+
+
+		template<typename SessHandle, typename... OtherArgs>
+		struct SeparatedOptions {
+				std::tuple<SessHandle*> sessionHandle;
+				std::tuple<OtherArgs...> otherArgs;
+
+				SeparatedOptions(std::tuple<SessHandle*> sessionHandle, std::tuple<OtherArgs...> otherArgs)
+						: sessionHandle(sessionHandle), otherArgs(otherArgs) {}
+		};
+
+		template <class... _Options>
+		Session& set_options_with_session(Session& session, _Options&&... opts)  {
+			// find the session handle if it exists
+			SessionHandle* sessionHandle = nullptr;
+			std::tuple<_Options...> otherArgs;
+			auto find_session_handle = [&](auto&&... args) {
+					auto checkSessionHandle = [&](auto&& arg) {
+							if constexpr (std::is_same_v<std::decay_t<decltype(arg)>, SessionHandle>) {
+									sessionHandle = &arg;
+							} else {
+									otherArgs = std::tuple_cat(otherArgs, std::make_tuple(std::forward<decltype(arg)>(arg)));
+							}
+					};
+
+					(checkSessionHandle(std::forward<Args>(args)), ...);
+			};
+
+			find_session_handle(std::forward<_Options>(opts)...);
+			if (sessionHandle != nullptr) {
+				std::apply([&](auto&&... args) {
+					set_options(*sessionHandle, std::forward<decltype(args)>(args)...);
+				}, otherArgs);
+			} else {
+				std::apply([&](auto&&... args) {
+					set_options(session, std::forward<decltype(args)>(args)...);
+				}, otherArgs);
 			}
+
+			return sessionHandle != nullptr ? *sessionHandle->GetSession() : session;
 		}
 
 		template <class... _Options>
